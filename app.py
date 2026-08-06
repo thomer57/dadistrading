@@ -9,6 +9,29 @@ from portfolio import load_portfolio, compute_portfolio_targets
 st.set_page_config(layout="wide")
 st.title("📈 Dadistrading")
 
+
+def compute_market_index(prices_df, date, window=200):
+    history = prices_df.loc[:date].copy()
+
+    if history.empty:
+        return None, 0, 0
+
+    latest_prices = history.iloc[-1]
+    sma200 = history.rolling(window=window, min_periods=window).mean().iloc[-1]
+
+    valid = latest_prices.notna() & sma200.notna()
+    bullish = (latest_prices > sma200) & valid
+
+    total_valid = valid.sum()
+    bullish_count = bullish.sum()
+
+    if total_valid == 0:
+        return None, 0, 0
+
+    market_index = bullish_count / total_valid
+    return market_index, bullish_count, total_valid
+
+
 # ====================== CHARGEMENT ======================
 etfs = load_etfs()
 prices_df = load_prices(etfs)
@@ -83,8 +106,28 @@ table, total_portfolio, pim = compute_portfolio_targets(
     min_trade=min_trade
 )
 
-# ====================== METRIC ======================
-st.metric("Valeur totale portefeuille", f"{total_portfolio:,.0f} €".replace(",", " "))
+# ====================== INDICE DE MARCHÉ ======================
+market_index, bullish_count, total_valid_etfs = compute_market_index(prices_df, date)
+
+# ====================== METRICS ======================
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Valeur totale portefeuille", f"{total_portfolio:,.0f} €".replace(",", " "))
+
+with col2:
+    if market_index is not None:
+        st.metric(
+            "Indice de marché",
+            f"{market_index * 100:.0f} %",
+            help=f"{bullish_count} ETF sur {total_valid_etfs} sont au-dessus de leur moyenne mobile 200 jours."
+        )
+    else:
+        st.metric(
+            "Indice de marché",
+            "N/A",
+            help="Pas assez d'historique pour calculer la moyenne mobile 200 jours."
+        )
 
 # ====================== COLONNES À MASQUER PAR DÉFAUT ======================
 hidden_by_default = [
