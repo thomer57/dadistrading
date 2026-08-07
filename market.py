@@ -18,10 +18,11 @@ def load_prices(etfs):
         period="6y",
         auto_adjust=True,
         progress=False,
-        threads=True
+        threads=False
     )
 
     prices = data["Close"]
+    prices = prices.dropna(axis=0, how="all")
 
     # on remplace les tickers Yahoo par les codes du père
     mapping = dict(zip(etfs["yahoo"], etfs["code"]))
