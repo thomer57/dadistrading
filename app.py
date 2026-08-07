@@ -35,7 +35,7 @@ def compute_market_index(prices_df, date, window=200):
 # ====================== CHARGEMENT ======================
 etfs = load_etfs()
 prices_df = load_prices(etfs)
-portfolio_df = load_portfolio()
+portfolio_df = load_portfolio()  
 
 
 
