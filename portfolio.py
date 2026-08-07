@@ -29,8 +29,8 @@ def compute_portfolio_targets(
 ):
     df = ranking_table.copy()
 
-    portfolio_map = portfolio_df.set_index("code")["montant_07_11"].to_dict()
-    df["montant_07_11"] = df["code"].map(portfolio_map)
+    portfolio_map = portfolio_df.set_index("code")["montant_08_07"].to_dict()
+    df["montant_08_07"] = df["code"].map(portfolio_map)
 
     current_values = []
 

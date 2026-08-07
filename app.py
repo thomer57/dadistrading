@@ -200,7 +200,7 @@ table = table.merge(
 )
 
 # ====================== CALCUL PORTEFEUILLE ======================
-start_date = pd.Timestamp("2026-07-11")
+start_date = pd.Timestamp("2026-08-07")
 
 table, total_portfolio, pim = compute_portfolio_targets(
     ranking_table=table,
@@ -257,7 +257,7 @@ hidden_by_default = [
     "code",
     "zone",
     "risque",
-    "montant_07_11",
+    "montant_07_08",
     "Momentum",
     "Mbis",
     "1W", "1M", "3M", "6M", "1Y",
@@ -276,7 +276,7 @@ else:
 display_table = display_table.rename(columns={
     "PII": "Cible",
     "Ecart PII": "Ecart cible",
-    "montant_07_11": "Valeur 11_07"
+    "montant_07_08": "Valeur 07_08"
 })
 
 # ====================== ORDRE DES COLONNES ======================
@@ -295,7 +295,7 @@ preferred_order = [
     "Momentum",
     "Mbis",
     "risque",
-    "Valeur 11_07",
+    "Valeur 07_08",
 ]
 
 ordered_cols = [col for col in preferred_order if col in display_table.columns]
@@ -326,7 +326,7 @@ pct_columns = [
 ]
 
 eur_columns = [
-    "Valeur 11_07",
+    "Valeur 07_08",
     "Valeur actuelle",
     "Cible",
     "Ecart cible"
