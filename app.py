@@ -37,6 +37,8 @@ etfs = load_etfs()
 prices_df = load_prices(etfs)
 portfolio_df = load_portfolio()
 
+
+
 # ====================== SIDEBAR ======================
 min_date = prices_df.index[0].date()
 max_date = prices_df.index[-1].date()
