@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 
+from momentum import Momentum
+from ranking import ranking
+
 
 def load_portfolio():
     return pd.read_csv("data/portfolio.csv", sep=";")
@@ -106,3 +109,64 @@ def compute_portfolio_targets(
     df["Pourquoi"] = recommendations.apply(lambda x: x[1])
 
     return df, total_portfolio, pim
+
+
+def compute_recommendation_history(
+    prices_df,
+    etfs,
+    portfolio_df,
+    start_date,
+    current_date,
+    n=3,
+    c=1.5,
+    min_trade=300,
+    final_column="Momentum",
+    lookback_days=10
+):
+    calc = Momentum()
+
+    available_dates = prices_df.loc[:current_date].index
+    if len(available_dates) == 0:
+        return pd.DataFrame(columns=["code", "Renforcer 10D", "Alléger 10D"])
+
+    lookback_dates = available_dates[-lookback_days:]
+
+    history_tables = []
+
+    for d in lookback_dates:
+        scores = calc.compute(prices_df, d)
+        table = ranking(scores, n=n, final_column=final_column)
+
+        table = table.merge(
+            etfs[["code", "nom", "zone", "risque"]],
+            on="code",
+            how="left"
+        )
+
+        table, _, _ = compute_portfolio_targets(
+            ranking_table=table,
+            prices_df=prices_df,
+            portfolio_df=portfolio_df,
+            start_date=start_date,
+            current_date=d,
+            c=c,
+            min_trade=min_trade
+        )
+
+        history_tables.append(
+            table[["code", "Recommandation"]].assign(date=d)
+        )
+
+    history_df = pd.concat(history_tables, ignore_index=True)
+
+    summary = history_df.groupby("code")["Recommandation"].agg(
+        renforce_pct=lambda x: (x == "Renforcer").mean(),
+        allege_pct=lambda x: (x == "Alléger").mean()
+    ).reset_index()
+
+    summary = summary.rename(columns={
+        "renforce_pct": "Renforcer 10D",
+        "allege_pct": "Alléger 10D"
+    })
+
+    return summary

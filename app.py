@@ -4,7 +4,11 @@ import pandas as pd
 from market import load_etfs, load_prices
 from momentum import Momentum
 from ranking import ranking
-from portfolio import load_portfolio, compute_portfolio_targets
+from portfolio import (
+    load_portfolio,
+    compute_portfolio_targets,
+    compute_recommendation_history
+)
 
 st.set_page_config(layout="wide")
 st.title("📈 Dadistrading")
@@ -32,12 +36,55 @@ def compute_market_index(prices_df, date, window=200):
     return market_index, bullish_count, total_valid
 
 
+def compute_trend_alerts(prices_df, date, scores_df):
+    history = prices_df.loc[:date].copy()
+
+    if history.empty:
+        return pd.DataFrame(columns=["code", "Alerte tendance"])
+
+    latest_prices = history.iloc[-1]
+    mm50 = history.rolling(window=50, min_periods=50).mean().iloc[-1]
+    mm200 = history.rolling(window=200, min_periods=200).mean().iloc[-1]
+
+    rows = []
+
+    for code in prices_df.columns:
+        price = latest_prices.get(code, pd.NA)
+        ma50 = mm50.get(code, pd.NA)
+        ma200 = mm200.get(code, pd.NA)
+        momentum = scores_df.loc[code, "Momentum"] if code in scores_df.index else pd.NA
+
+        cond_price_below_mm200 = pd.notna(price) and pd.notna(ma200) and price < ma200
+        cond_mm50_below_mm200 = pd.notna(ma50) and pd.notna(ma200) and ma50 < ma200
+        cond_momentum_negative = pd.notna(momentum) and momentum < 0
+
+        score = sum([
+            cond_price_below_mm200,
+            cond_mm50_below_mm200,
+            cond_momentum_negative
+        ])
+
+        if score == 3:
+            alert = "Vente rapide"
+        elif score == 2:
+            alert = "Alerte baisse"
+        elif score == 1:
+            alert = "Sous surveillance"
+        else:
+            alert = "OK"
+
+        rows.append({
+            "code": code,
+            "Alerte tendance": alert
+        })
+
+    return pd.DataFrame(rows)
+
+
 # ====================== CHARGEMENT ======================
 etfs = load_etfs()
 prices_df = load_prices(etfs)
-portfolio_df = load_portfolio()  
-
-
+portfolio_df = load_portfolio()
 
 # ====================== SIDEBAR ======================
 min_date = prices_df.index[0].date()
@@ -82,6 +129,7 @@ show_details = st.sidebar.checkbox("👁 Afficher les colonnes avancées", value
 # ====================== CALCUL MOMENTUM ======================
 calc = Momentum()
 scores = calc.compute(prices_df, date)
+trend_alerts = compute_trend_alerts(prices_df, date, scores)
 
 final_column = "Momentum" if momentum_version == "M (brute)" else "Mbis"
 
@@ -107,6 +155,22 @@ table, total_portfolio, pim = compute_portfolio_targets(
     c=c,
     min_trade=min_trade
 )
+
+history_table = compute_recommendation_history(
+    prices_df=prices_df,
+    etfs=etfs,
+    portfolio_df=portfolio_df,
+    start_date=start_date,
+    current_date=date,
+    n=n,
+    c=c,
+    min_trade=min_trade,
+    final_column=final_column,
+    lookback_days=10
+)
+
+table = table.merge(history_table, on="code", how="left")
+table = table.merge(trend_alerts, on="code", how="left")
 
 # ====================== INDICE DE MARCHÉ ======================
 market_index, bullish_count, total_valid_etfs = compute_market_index(prices_df, date)
@@ -134,7 +198,7 @@ with col2:
 # ====================== COLONNES À MASQUER PAR DÉFAUT ======================
 hidden_by_default = [
     "date_calcul",
-    "nom",
+    "code",
     "zone",
     "risque",
     "montant_07_11",
@@ -160,15 +224,18 @@ display_table = display_table.rename(columns={
 # ====================== ORDRE DES COLONNES ======================
 preferred_order = [
     "Rang",
-    "code",
+    "nom",
     "Type",
+    "Alerte tendance",
     "Momentum",
     "Mbis",
     "Valeur actuelle",
     "Cible",
     "Ecart cible",
-    "Pourquoi",
     "Recommandation",
+    "Renforcer 10D",
+    "Alléger 10D",
+    "Pourquoi",
     "risque",
     "Valeur 11_07",
 ]
@@ -188,6 +255,11 @@ def format_eur(val):
         return "–"
     return f"{val:,.0f} €".replace(",", " ")
 
+def format_ratio_10d(val):
+    if pd.isna(val):
+        return "–"
+    return f"{int(round(val * 10))}/10"
+
 pct_columns = [
     "1W", "1M", "3M", "6M", "1Y",
     "MCT", "MMT", "Momentum",
@@ -205,6 +277,10 @@ eur_columns = [
 for col in pct_columns:
     if col in display_table.columns:
         display_table[col] = display_table[col].apply(format_pct)
+
+for col in ["Renforcer 10D", "Alléger 10D"]:
+    if col in display_table.columns:
+        display_table[col] = display_table[col].apply(format_ratio_10d)
 
 for col in eur_columns:
     if col in display_table.columns:
@@ -232,10 +308,22 @@ def color_reco(val):
         return "color: #B0BEC5; font-weight: bold"
     return ""
 
+def color_alert(val):
+    if val == "Vente rapide":
+        return "color: #F44336; font-weight: bold"
+    elif val == "Alerte baisse":
+        return "color: #FF9800; font-weight: bold"
+    elif val == "Sous surveillance":
+        return "color: #FFD54F; font-weight: bold"
+    elif val == "OK":
+        return "color: #B0BEC5; font-weight: bold"
+    return ""
+
 styled_table = (
     display_table.style
     .map(color_type, subset=["Type"])
     .map(color_reco, subset=["Recommandation"])
+    .map(color_alert, subset=["Alerte tendance"])
 )
 
 # ====================== AFFICHAGE TABLEAU ======================
