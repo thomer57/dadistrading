@@ -4,11 +4,13 @@ import pandas as pd
 from market import load_etfs, load_prices
 from momentum import Momentum
 from ranking import ranking
-from portfolio import (
-    load_portfolio,
-    compute_portfolio_targets,
-    compute_recommendation_history
-)
+# from portfolio import (
+#     load_portfolio,
+#     compute_portfolio_targets,
+#     compute_recommendation_history
+# )
+from portfolio import load_portfolio, compute_portfolio_targets
+
 
 st.set_page_config(layout="wide")
 st.title("📈 Dadistrading")
@@ -156,20 +158,20 @@ table, total_portfolio, pim = compute_portfolio_targets(
     min_trade=min_trade
 )
 
-history_table = compute_recommendation_history(
-    prices_df=prices_df,
-    etfs=etfs,
-    portfolio_df=portfolio_df,
-    start_date=start_date,
-    current_date=date,
-    n=n,
-    c=c,
-    min_trade=min_trade,
-    final_column=final_column,
-    lookback_days=10
-)
+# history_table = compute_recommendation_history(
+#     prices_df=prices_df,
+#     etfs=etfs,
+#     portfolio_df=portfolio_df,
+#     start_date=start_date,
+#     current_date=date,
+#     n=n,
+#     c=c,
+#     min_trade=min_trade,
+#     final_column=final_column,
+#     lookback_days=10
+# )
 
-table = table.merge(history_table, on="code", how="left")
+# table = table.merge(history_table, on="code", how="left")
 table = table.merge(trend_alerts, on="code", how="left")
 
 # ====================== INDICE DE MARCHÉ ======================
