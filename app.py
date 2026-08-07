@@ -4,13 +4,7 @@ import pandas as pd
 from market import load_etfs, load_prices
 from momentum import Momentum
 from ranking import ranking
-# from portfolio import (
-#     load_portfolio,
-#     compute_portfolio_targets,
-#     compute_recommendation_history
-# )
 from portfolio import load_portfolio, compute_portfolio_targets
-
 
 st.set_page_config(layout="wide")
 st.title("📈 Dadistrading")
@@ -81,6 +75,66 @@ def compute_trend_alerts(prices_df, date, scores_df):
         })
 
     return pd.DataFrame(rows)
+
+
+def compute_recommendation_history(
+    prices_df,
+    etfs,
+    portfolio_df,
+    start_date,
+    current_date,
+    n=3,
+    c=1.5,
+    min_trade=300,
+    final_column="Momentum",
+    lookback_days=10
+):
+    calc = Momentum()
+
+    available_dates = prices_df.loc[:current_date].index
+    if len(available_dates) == 0:
+        return pd.DataFrame(columns=["code", "Renforcer 10D", "Alléger 10D"])
+
+    lookback_dates = available_dates[-lookback_days:]
+    history_tables = []
+
+    for d in lookback_dates:
+        scores_d = calc.compute(prices_df, d)
+        table_d = ranking(scores_d, n=n, final_column=final_column)
+
+        table_d = table_d.merge(
+            etfs[["code", "nom", "zone", "risque"]],
+            on="code",
+            how="left"
+        )
+
+        table_d, _, _ = compute_portfolio_targets(
+            ranking_table=table_d,
+            prices_df=prices_df,
+            portfolio_df=portfolio_df,
+            start_date=start_date,
+            current_date=d,
+            c=c,
+            min_trade=min_trade
+        )
+
+        history_tables.append(
+            table_d[["code", "Recommandation"]].assign(date=d)
+        )
+
+    history_df = pd.concat(history_tables, ignore_index=True)
+
+    summary = history_df.groupby("code")["Recommandation"].agg(
+        renforce_pct=lambda x: (x == "Renforcer").mean(),
+        allege_pct=lambda x: (x == "Alléger").mean()
+    ).reset_index()
+
+    summary = summary.rename(columns={
+        "renforce_pct": "Renforcer 10D",
+        "allege_pct": "Alléger 10D"
+    })
+
+    return summary
 
 
 # ====================== CHARGEMENT ======================
@@ -158,20 +212,20 @@ table, total_portfolio, pim = compute_portfolio_targets(
     min_trade=min_trade
 )
 
-# history_table = compute_recommendation_history(
-#     prices_df=prices_df,
-#     etfs=etfs,
-#     portfolio_df=portfolio_df,
-#     start_date=start_date,
-#     current_date=date,
-#     n=n,
-#     c=c,
-#     min_trade=min_trade,
-#     final_column=final_column,
-#     lookback_days=10
-# )
+history_table = compute_recommendation_history(
+    prices_df=prices_df,
+    etfs=etfs,
+    portfolio_df=portfolio_df,
+    start_date=start_date,
+    current_date=date,
+    n=n,
+    c=c,
+    min_trade=min_trade,
+    final_column=final_column,
+    lookback_days=10
+)
 
-# table = table.merge(history_table, on="code", how="left")
+table = table.merge(history_table, on="code", how="left")
 table = table.merge(trend_alerts, on="code", how="left")
 
 # ====================== INDICE DE MARCHÉ ======================
@@ -204,6 +258,8 @@ hidden_by_default = [
     "zone",
     "risque",
     "montant_07_11",
+    "Momentum",
+    "Mbis",
     "1W", "1M", "3M", "6M", "1Y",
     "1WN", "1MN", "3MN", "6MN", "1YN",
     "MCT", "MMT", "MCTbis", "MMTbis",
@@ -229,15 +285,15 @@ preferred_order = [
     "nom",
     "Type",
     "Alerte tendance",
-    "Momentum",
-    "Mbis",
-    "Valeur actuelle",
-    "Cible",
-    "Ecart cible",
     "Recommandation",
     "Renforcer 10D",
     "Alléger 10D",
+    "Valeur actuelle",
+    "Cible",
+    "Ecart cible",
     "Pourquoi",
+    "Momentum",
+    "Mbis",
     "risque",
     "Valeur 11_07",
 ]
