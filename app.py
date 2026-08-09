@@ -148,7 +148,7 @@ max_date = prices_df.index[-1].date()
 
 selected_date = st.sidebar.date_input(
     "Date",
-    value=pd.to_datetime("2026-07-27").date(),
+    value=max_date,      # dernière date disponible
     min_value=min_date,
     max_value=max_date
 )
